@@ -56,7 +56,7 @@ times = {}
 kf = KFold(n_splits=5)
 
 for iteration in range(resampling):
-    print('Iteration ' + str(iteration+1) + ' started...')
+    print('Iteration ' + str(iteration + 1) + ' started...')
 
     # train and test split
     x_train, x_test, y_train, y_test = train_test_split(fish_scaled.drop(columns=6),
@@ -64,17 +64,18 @@ for iteration in range(resampling):
 
     ## --------- Hyperparameters tuning (Bayesian Search) + ensemble ---------- ##
 
-    objs[iteration] = pd.DataFrame({'LASSO(a)':[], 'RF(n)':[], 'RF(MD)':[], 'XGB(g)':[], 'XGB(LR)':[], 'XGB(n)':[], 'XGB(MD)':[],
-                                    'SVM(C)':[],'SVM(g)':[], 'LASSO':[], 'RF':[], 'XGB':[], 'SVM-R':[]})
-    times[iteration] = pd.DataFrame({'LASSO':[], 'RF':[], 'XGB':[], 'SVM-R':[], 'Classical':[],
-                                     'Stacked reg':[], 'Stacked RF':[], 'Stacked KNN':[], 'GEM-ITH':[], 'GEM':[]})
+    objs[iteration] = pd.DataFrame(
+        {'LASSO(a)': [], 'RF(n)': [], 'RF(MD)': [], 'XGB(g)': [], 'XGB(LR)': [], 'XGB(n)': [], 'XGB(MD)': [],
+         'SVM(C)': [], 'SVM(g)': [], 'LASSO': [], 'RF': [], 'XGB': [], 'SVM-R': []})
+    times[iteration] = pd.DataFrame({'LASSO': [], 'RF': [], 'XGB': [], 'SVM-R': [], 'BEM': [],
+                                     'Stacked reg': [], 'Stacked RF': [], 'Stacked KNN': [], 'GEM-ITH': [], 'GEM': []})
 
     ## ---------
     start1 = time.time()
-    
+
     # Bayesian search with 12 iterations to find candidate hyperparameter combinations
-    
     max_evals = 12
+
 
     def objective_LASSO(params):
         L1_B = Lasso(**params)
@@ -82,6 +83,8 @@ for iteration in range(resampling):
         LASSO_df_B = cross_val_predict(LASSO_B, x_train, y_train, cv=5)
         loss_LASSO = mse(y_train, LASSO_df_B)
         return {'loss': loss_LASSO, 'params': params, 'status': STATUS_OK}
+
+
     space_LASSO = {'alpha': hp.uniform('alpha', 10.0 ** -5.0, 1)}
     tpe_algorithm = tpe.suggest
     trials_LASSO = Trials()
@@ -92,12 +95,15 @@ for iteration in range(resampling):
         LASSO_param_B.at[i, 'alpha'] = trials_LASSO.results[i]['params']['alpha']
     LASSO_param_B = pd.DataFrame(LASSO_param_B.alpha)
 
+
     def objective_RF(params):
         R1_B = RandomForestRegressor(**params)
         RF_B = R1_B.fit(x_train, y_train)
         RF_df_B = cross_val_predict(RF_B, x_train, y_train, cv=5)
         loss_RF = mse(y_train, RF_df_B)
         return {'loss': loss_RF, 'params': params, 'status': STATUS_OK}
+
+
     space_RF = {'n_estimators': hp.choice('n_estimators', [100, 200, 500]),
                 'max_depth': hp.choice('max_depth', [int(x) for x in np.arange(4, 11, 1)])}
     tpe_algorithm = tpe.suggest
@@ -111,12 +117,15 @@ for iteration in range(resampling):
     RF_param_B = pd.DataFrame({'n_estimators': RF_param_B.n_estimators,
                                'max_depth': RF_param_B.max_depth})
 
+
     def objective_XGB(params):
         X1_B = XGBRegressor(objective='reg:linear', **params)
         XGB_B = X1_B.fit(x_train, y_train)
         XGB_df_B = cross_val_predict(XGB_B, x_train, y_train, cv=5)
         loss_XGB = mse(y_train, XGB_df_B)
         return {'loss': loss_XGB, 'params': params, 'status': STATUS_OK}
+
+
     space_XGB = {'gamma': hp.uniform('gamma', 5.0, 11.0),
                  'learning_rate': hp.uniform('learning_rate', 0.1, 0.6),
                  'n_estimators': hp.choice('n_estimators', np.arange(50, 151, 50)),
@@ -136,12 +145,15 @@ for iteration in range(resampling):
                                 'n_estimators': XGB_param_B.n_estimators,
                                 'max_depth': XGB_param_B.max_depth})
 
+
     def objective_SVM(params):
         S1_B = svm.SVR(kernel='rbf', **params)
         SVM_B = S1_B.fit(x_train, y_train)
         SVM_df_B = cross_val_predict(SVM_B, x_train, y_train, cv=5)
         loss_SVM = mse(y_train, SVM_df_B)
         return {'loss': loss_SVM, 'params': params, 'status': STATUS_OK}
+
+
     space_SVM = {'C': hp.uniform('C', 0.01, 5.0),
                  'gamma': hp.uniform('gamma', 0.01, 0.55)}
     tpe_algorithm = tpe.suggest
@@ -155,8 +167,7 @@ for iteration in range(resampling):
     SVM_param_B = pd.DataFrame({'C': SVM_param_B.C,
                                 'gamma': SVM_param_B.gamma})
 
-    # defining GEM optimization model
-    
+    # defining optimization model
     def objective(x):
         return mse(y_train, (x[0] * LASSO_df +
                              x[1] * RF_df +
@@ -165,12 +176,16 @@ for iteration in range(resampling):
 
     def constraint1(x):
         return x[0] + x[1] + x[2] + x[3] - 1.0
+
     def constraint2(x):
         return LASSO_mse - objective(x)
+
     def constraint3(x):
         return RF_mse - objective(x)
+
     def constraint4(x):
         return XGB_mse - objective(x)
+
     def constraint5(x):
         return SVM_mse - objective(x)
 
@@ -188,10 +203,10 @@ for iteration in range(resampling):
     con4 = {'type': 'ineq', 'fun': constraint4}
     con5 = {'type': 'ineq', 'fun': constraint5}
     cons = [con1, con2, con3, con4, con5]
-    
-    # Initiating GEM-ITH algorithm to find optimal weights and hyperparameters
+
     kf = KFold(n_splits=5)
 
+    # Initiating GEM-ITH algorithm to find optimal weights and hyperparameters
     for i in range(len(LASSO_param_B.alpha)):
         LASSO_df = pd.DataFrame()
         L1 = Lasso(alpha=LASSO_param_B.alpha[i])
@@ -252,6 +267,7 @@ for iteration in range(resampling):
                                                               'Initial Obj': objective(x0),
                                                               'Optimal Obj': objective(x)}, ignore_index=True)
 
+    # making final base models predictions on the test set using the found hyperparameteers
     L_test = Lasso(alpha=objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['LASSO(a)'])
     LASSO_test = L_test.fit(x_train, y_train)
     LASSO_preds_test = LASSO_test.predict(x_test)
@@ -266,9 +282,12 @@ for iteration in range(resampling):
 
     X_test = XGBRegressor(objective='reg:linear',
                           gamma=objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['XGB(g)'],
-                          learning_rate=objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['XGB(LR)'],
-                          max_depth=int(objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['XGB(MD)']),
-                          n_estimators=int(objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['XGB(n)']))
+                          learning_rate=objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :][
+                              'XGB(LR)'],
+                          max_depth=int(
+                              objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['XGB(MD)']),
+                          n_estimators=int(
+                              objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['XGB(n)']))
     XGB_test = X_test.fit(x_train, y_train)
     XGB_preds_test = XGB_test.predict(x_test)
     XGB_mse_test = mse(y_test, XGB_preds_test)
@@ -279,88 +298,101 @@ for iteration in range(resampling):
     SVM_preds_test = SVM_test.predict(x_test)
     SVM_mse_test = mse(y_test, SVM_preds_test)
 
-    coweith_preds_test = objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['Weights'][0] * LASSO_preds_test + \
-                          objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['Weights'][1] * RF_preds_test + \
-                          objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['Weights'][2] * XGB_preds_test + \
-                          objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['Weights'][3] * SVM_preds_test
-    coweith_mse_test = mse(y_test, coweith_preds_test)
+    # Aggregating base models predictions with the found optimal weights (GEM-ITH ensemble predictions)
+    gemith_preds_test = objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['Weights'][
+                            0] * LASSO_preds_test + \
+                        objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['Weights'][
+                            1] * RF_preds_test + \
+                        objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['Weights'][
+                            2] * XGB_preds_test + \
+                        objs[iteration].loc[objs[iteration]['Optimal Obj'].idxmin(axis=1), :]['Weights'][
+                            3] * SVM_preds_test
+    gemith_mse_test = mse(y_test, gemith_preds_test)
 
     times[iteration]['GEM-ITH'] = [time.time() - start1]
 
-
-
     ## ------------------------------------ GEM - GRID SEARCH ------------------------------------- ##
 
+    # performing Grid search to tune base models' hyperparameters
     start2 = time.time()
 
     grid_LASSO = {'alpha': np.linspace(10.0 ** -5.0, 1, 50)}
-    L_cowe_G = Lasso()
-    search_LASSO_cowe_G = GridSearchCV(L_cowe_G, grid_LASSO, cv=5, scoring='neg_mean_squared_error')
-    LASSO_df_cowe_G = pd.DataFrame()
+    L_gem_G = Lasso()
+    search_LASSO_gem_G = GridSearchCV(L_gem_G, grid_LASSO, cv=5, scoring='neg_mean_squared_error')
+    LASSO_df_gem_G = pd.DataFrame()
     for train_index, test_index in kf.split(x_train, y_train):
-        search_LASSO_cowe_G.fit(np.array(x_train)[train_index], np.array(y_train)[train_index])
-        LASSO_df_cowe_G = pd.concat([LASSO_df_cowe_G, pd.DataFrame(search_LASSO_cowe_G.predict(np.array(x_train)[test_index]))])
-    search_LASSO_cowe_G.fit(x_train, y_train)
-    LASSO_cowe_G_mse = mse(y_train, LASSO_df_cowe_G)
-    LASSO_cowe_G_test = search_LASSO_cowe_G.predict(x_test)
-    LASSO_cowe_G_mse_test = mse(y_test, LASSO_cowe_G_test)
+        search_LASSO_gem_G.fit(np.array(x_train)[train_index], np.array(y_train)[train_index])
+        LASSO_df_gem_G = pd.concat(
+            [LASSO_df_gem_G, pd.DataFrame(search_LASSO_gem_G.predict(np.array(x_train)[test_index]))])
+    search_LASSO_gem_G.fit(x_train, y_train)
+    LASSO_gem_G_mse = mse(y_train, LASSO_df_gem_G)
+    LASSO_gem_G_test = search_LASSO_gem_G.predict(x_test)
+    LASSO_gem_G_mse_test = mse(y_test, LASSO_gem_G_test)
 
     grid_RF = {'n_estimators': [100, 200, 500], 'max_depth': np.arange(4, 11, 1)}
-    R_cowe_G = RandomForestRegressor()
-    search_RF_cowe_G = GridSearchCV(R_cowe_G, grid_RF, cv=5, scoring='neg_mean_squared_error')
-    RF_df_cowe_G = pd.DataFrame()
+    R_gem_G = RandomForestRegressor()
+    search_RF_gem_G = GridSearchCV(R_gem_G, grid_RF, cv=5, scoring='neg_mean_squared_error')
+    RF_df_gem_G = pd.DataFrame()
     for train_index, test_index in kf.split(x_train, y_train):
-        search_RF_cowe_G.fit(np.array(x_train)[train_index], np.array(y_train)[train_index])
-        RF_df_cowe_G = pd.concat([RF_df_cowe_G, pd.DataFrame(search_RF_cowe_G.predict(np.array(x_train)[test_index]))])
-    search_RF_cowe_G.fit(x_train, y_train)
-    RF_cowe_G_mse = mse(y_train, RF_df_cowe_G)
-    RF_cowe_G_test = search_RF_cowe_G.predict(x_test)
-    RF_cowe_G_mse_test = mse(y_test, RF_cowe_G_test)
-
+        search_RF_gem_G.fit(np.array(x_train)[train_index], np.array(y_train)[train_index])
+        RF_df_gem_G = pd.concat([RF_df_gem_G, pd.DataFrame(search_RF_gem_G.predict(np.array(x_train)[test_index]))])
+    search_RF_gem_G.fit(x_train, y_train)
+    RF_gem_G_mse = mse(y_train, RF_df_gem_G)
+    RF_gem_G_test = search_RF_gem_G.predict(x_test)
+    RF_gem_G_mse_test = mse(y_test, RF_gem_G_test)
 
     grid_XGB = {'gamma': np.arange(5.0, 11.0), 'learning_rate': np.arange(0.1, 0.6),
                 'n_estimators': np.arange(50, 151, 50), 'max_depth': np.arange(3, 10, 3)}
-    X_cowe_G = XGBRegressor(objective='reg:linear')
-    search_XGB_cowe_G = GridSearchCV(X_cowe_G, grid_XGB, cv=5, scoring='neg_mean_squared_error')
-    XGB_df_cowe_G = pd.DataFrame()
+    X_gem_G = XGBRegressor(objective='reg:linear')
+    search_XGB_gem_G = GridSearchCV(X_gem_G, grid_XGB, cv=5, scoring='neg_mean_squared_error')
+    XGB_df_gem_G = pd.DataFrame()
     for train_index, test_index in kf.split(x_train, y_train):
-        search_XGB_cowe_G.fit(np.array(x_train)[train_index], np.array(y_train)[train_index])
-        XGB_df_cowe_G = pd.concat([XGB_df_cowe_G, pd.DataFrame(search_XGB_cowe_G.predict(np.array(x_train)[test_index]))])
-    search_XGB_cowe_G.fit(x_train, y_train)
-    XGB_cowe_G_mse = mse(y_train, XGB_df_cowe_G)
-    XGB_cowe_G_test = search_XGB_cowe_G.predict(x_test)
-    XGB_cowe_G_mse_test = mse(y_test, XGB_cowe_G_test)
+        search_XGB_gem_G.fit(np.array(x_train)[train_index], np.array(y_train)[train_index])
+        XGB_df_gem_G = pd.concat([XGB_df_gem_G, pd.DataFrame(search_XGB_gem_G.predict(np.array(x_train)[test_index]))])
+    search_XGB_gem_G.fit(x_train, y_train)
+    XGB_gem_G_mse = mse(y_train, XGB_df_gem_G)
+    XGB_gem_G_test = search_XGB_gem_G.predict(x_test)
+    XGB_gem_G_mse_test = mse(y_test, XGB_gem_G_test)
 
     grid_SVM = {'C': np.linspace(0.01, 5.0, 20), 'gamma': np.linspace(0.01, 0.55, 20)}
-    S_cowe_G = svm.SVR(kernel='rbf')
-    search_SVM_cowe_G = GridSearchCV(S_cowe_G, grid_SVM, cv=5, scoring='neg_mean_squared_error')
-    SVM_df_cowe_G = pd.DataFrame()
+    S_gem_G = svm.SVR(kernel='rbf')
+    search_SVM_gem_G = GridSearchCV(S_gem_G, grid_SVM, cv=5, scoring='neg_mean_squared_error')
+    SVM_df_gem_G = pd.DataFrame()
     for train_index, test_index in kf.split(x_train, y_train):
-        search_SVM_cowe_G.fit(np.array(x_train)[train_index], np.array(y_train)[train_index])
-        SVM_df_cowe_G = pd.concat([SVM_df_cowe_G, pd.DataFrame(search_SVM_cowe_G.predict(np.array(x_train)[test_index]))])
-    search_SVM_cowe_G.fit(x_train, y_train)
-    SVM_cowe_G_mse = mse(y_train, SVM_df_cowe_G)
-    SVM_cowe_G_test = search_SVM_cowe_G.predict(x_test)
-    SVM_cowe_G_mse_test = mse(y_test, SVM_cowe_G_test)
+        search_SVM_gem_G.fit(np.array(x_train)[train_index], np.array(y_train)[train_index])
+        SVM_df_gem_G = pd.concat(
+            [SVM_df_gem_G, pd.DataFrame(search_SVM_gem_G.predict(np.array(x_train)[test_index]))])
+    search_SVM_gem_G.fit(x_train, y_train)
+    SVM_gem_G_mse = mse(y_train, SVM_df_gem_G)
+    SVM_gem_G_test = search_SVM_gem_G.predict(x_test)
+    SVM_gem_G_mse_test = mse(y_test, SVM_gem_G_test)
 
     middle2 = time.time() - start2
-    start2_cowe = time.time()
+    start2_gem = time.time()
 
+    # defining optimization model
     def objective2(y):
-        return mse(y_train, (y[0] * LASSO_df_cowe_G +
-                             y[1] * RF_df_cowe_G +
-                             y[2] * XGB_df_cowe_G +
-                             y[3] * SVM_df_cowe_G))
+        return mse(y_train, (y[0] * LASSO_df_gem_G +
+                             y[1] * RF_df_gem_G +
+                             y[2] * XGB_df_gem_G +
+                             y[3] * SVM_df_gem_G))
+
     def constraint6(y):
         return y[0] + y[1] + y[2] + y[3] - 1.0
+
     def constraint7(y):
-        return LASSO_cowe_G_mse - objective2(y)
+        return LASSO_gem_G_mse - objective2(y)
+
     def constraint8(y):
-        return RF_cowe_G_mse - objective2(y)
+        return RF_gem_G_mse - objective2(y)
+
     def constraint9(y):
-        return XGB_cowe_G_mse - objective2(y)
+        return XGB_gem_G_mse - objective2(y)
+
     def constraint10(y):
-        return SVM_cowe_G_mse - objective2(y)
+        return SVM_gem_G_mse - objective2(y)
+
+
     y0 = np.zeros(4)
     y0[0] = 1 / 4
     y0[1] = 1 / 4
@@ -379,32 +411,36 @@ for iteration in range(resampling):
                          constraints=cons2)
     y = solution2.x
 
-    cls_G_preds_test = y0[0] * LASSO_cowe_G_test + y0[1] * RF_cowe_G_test + y0[2] * XGB_cowe_G_test + y0[3] * SVM_cowe_G_test
+    # aggregating base models' predictions on the test set using the weights found via optimization (GEM ensemble predictions)
+    cls_G_preds_test = y0[0] * LASSO_gem_G_test + y0[1] * RF_gem_G_test + y0[2] * XGB_gem_G_test + y0[
+        3] * SVM_gem_G_test
     cls_G_mse_test = mse(y_test, cls_G_preds_test)
 
-    times[iteration]['GEM'] = [time.time() - start2_cowe + middle2]
+    times[iteration]['GEM'] = [time.time() - start2_gem + middle2]
 
+    # Taking simple average from base models' predictions on the test set (BEM ensemble predictions)
     start2_cls = time.time()
-    cowe_G_preds_test = y[0] * LASSO_cowe_G_test + y[1] * RF_cowe_G_test + y[2] * XGB_cowe_G_test + y[3] * SVM_cowe_G_test
-    cowe_G_mse_test = mse(y_test, cowe_G_preds_test)
+    gem_G_preds_test = y[0] * LASSO_gem_G_test + y[1] * RF_gem_G_test + y[2] * XGB_gem_G_test + y[
+        3] * SVM_gem_G_test
+    gem_G_mse_test = mse(y_test, gem_G_preds_test)
 
-    times[iteration]['Classical'] = [time.time() - start2_cls + middle2]
-
+    times[iteration]['BEM'] = [time.time() - start2_cls + middle2]
 
     ## -------------------------------- STACKING - GRID SEARCH -------------------------------- ##
 
     start3 = time.time()
-
+    
+    # making stacked ensemble models
     predsDF_G = pd.DataFrame()
-    predsDF_G['LASSO'] = LASSO_df_cowe_G[0].reset_index(drop=True)
-    predsDF_G['RF'] = RF_df_cowe_G[0].reset_index(drop=True)
-    predsDF_G['XGB'] = XGB_df_cowe_G[0].reset_index(drop=True)
-    predsDF_G['SVM'] = SVM_df_cowe_G[0].reset_index(drop=True)
+    predsDF_G['LASSO'] = LASSO_df_gem_G[0].reset_index(drop=True)
+    predsDF_G['RF'] = RF_df_gem_G[0].reset_index(drop=True)
+    predsDF_G['XGB'] = XGB_df_gem_G[0].reset_index(drop=True)
+    predsDF_G['SVM'] = SVM_df_gem_G[0].reset_index(drop=True)
     y_train.reset_index(inplace=True, drop=True)
     predsDF_G['y_train'] = y_train
     x_stacked_G = predsDF_G.drop(columns='y_train', axis=1)
     y_stacked_G = predsDF_G['y_train']
-    testPreds_G = pd.DataFrame([LASSO_cowe_G_test, RF_cowe_G_test, XGB_cowe_G_test, SVM_cowe_G_test]).T
+    testPreds_G = pd.DataFrame([LASSO_gem_G_test, RF_gem_G_test, XGB_gem_G_test, SVM_gem_G_test]).T
     testPreds_G.columns = ['LASSO', 'RF', 'XGB', 'SVM']
 
     middle3 = time.time() - start3
@@ -430,10 +466,9 @@ for iteration in range(resampling):
     stck_knn_G_mse_test = mse(y_test, stck_knn_G_preds_test)
     times[iteration]['Stacked KNN'] = [time.time() - start3_knn + middle2 + middle3]
 
-
-
     ## -------------------------------- GRID SEARCH FOR BASE LEARNERS -------------------------------- ##
-
+    
+    # performing grid search for base learners
     start4_lasso = time.time()
     grid_LASSO = {'alpha': np.linspace(10.0 ** -5.0, 1, 50)}
     L_G = Lasso()
@@ -471,37 +506,35 @@ for iteration in range(resampling):
     SVM_G_mse_test = mse(y_test, SVM_G_test)
     times[iteration]['SVM'] = [time.time() - start4_svm]
 
-
-
-
     ## ------------------------------ RESULTS ------------------------------ ##
-
+    
+    # recording test results
     test_results[iteration] = pd.DataFrame(data={'model': ['MSE'], 'LASSO': [LASSO_G_mse_test], 'RF': [RF_G_mse_test],
                                                  'XGB': [XGB_G_mse_test], 'SVM': [SVM_G_mse_test],
-                                                 'GEM-ITH': [coweith_mse_test],
-                                                 'GEM_G': [cowe_G_mse_test], 'Classical_G': [cls_G_mse_test],
-                                                 'stck_reg_G': [stck_reg_G_mse_test], 'stck_rf_G':[stck_rf_G_mse_test],
-                                                 'stck_knn_G':[stck_knn_G_mse_test]})
+                                                 'GEM-ITH': [gemith_mse_test],
+                                                 'GEM_G': [gem_G_mse_test], 'BEM_G': [cls_G_mse_test],
+                                                 'stck_reg_G': [stck_reg_G_mse_test], 'stck_rf_G': [stck_rf_G_mse_test],
+                                                 'stck_knn_G': [stck_knn_G_mse_test]})
 
+    # averaging test results for 5 resamplings 
 total_test_results = pd.concat([test_results[0].drop('model', axis=1), test_results[1].drop('model', axis=1),
                                 test_results[2].drop('model', axis=1), test_results[3].drop('model', axis=1),
                                 test_results[4].drop('model', axis=1)], axis=0)
-
 test_results_mean = total_test_results.mean()
+times_average = (times[0] + times[1] + times[2] + times[3] + times[4]) / resampling
 
-times_average = (times[0] + times[1] + times[2] + times[3] + times[4])/resampling
+GEM_params = pd.DataFrame(
+    data={'model': ['parameter'], 'LASSO (alpha)': trials_LASSO.best_trial['result']['params']['alpha'],
+          'RF (max_depth)': trials_RF.best_trial['result']['params']['max_depth'],
+          'RF (n_estimators)': trials_RF.best_trial['result']['params']['n_estimators'],
+          'XGB (gamma)': trials_XGB.best_trial['result']['params']['gamma'],
+          'XGB (learning_rate)': trials_XGB.best_trial['result']['params']['learning_rate'],
+          'XGB (n_estimators)': trials_XGB.best_trial['result']['params']['n_estimators'],
+          'XGB (max_depth)': trials_XGB.best_trial['result']['params']['max_depth'],
+          'SVM (C)': trials_SVM.best_trial['result']['params']['C'],
+          'SVM (gamma)': trials_SVM.best_trial['result']['params']['gamma']})
 
-GEM_params = pd.DataFrame(data={'model':['parameter'],'LASSO (alpha)':trials_LASSO.best_trial['result']['params']['alpha'],
-                                 'RF (max_depth)': trials_RF.best_trial['result']['params']['max_depth'],
-                                 'RF (n_estimators)': trials_RF.best_trial['result']['params']['n_estimators'],
-                                 'XGB (gamma)': trials_XGB.best_trial['result']['params']['gamma'],
-                                 'XGB (learning_rate)': trials_XGB.best_trial['result']['params']['learning_rate'],
-                                 'XGB (n_estimators)': trials_XGB.best_trial['result']['params']['n_estimators'],
-                                 'XGB (max_depth)': trials_XGB.best_trial['result']['params']['max_depth'],
-                                 'SVM (C)': trials_SVM.best_trial['result']['params']['C'],
-                                 'SVM (gamma)': trials_SVM.best_trial['result']['params']['gamma']})
-
-grid_params = pd.DataFrame(data={'model':['parameter'],'LASSO (alpha)':search_LASSO.best_params_['alpha'],
+grid_params = pd.DataFrame(data={'model': ['parameter'], 'LASSO (alpha)': search_LASSO.best_params_['alpha'],
                                  'RF (max_depth)': search_RF.best_params_['max_depth'],
                                  'RF (n_estimators)': search_RF.best_params_['n_estimators'],
                                  'XGB (gamma)': search_XGB.best_params_['gamma'],
