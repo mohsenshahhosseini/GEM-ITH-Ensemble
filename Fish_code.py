@@ -73,6 +73,7 @@ for iteration in range(resampling):
     start1 = time.time()
     
     # Bayesian search with 12 iterations to find candidate hyperparameter combinations
+    
     max_evals = 12
 
     def objective_LASSO(params):
@@ -154,6 +155,8 @@ for iteration in range(resampling):
     SVM_param_B = pd.DataFrame({'C': SVM_param_B.C,
                                 'gamma': SVM_param_B.gamma})
 
+    # defining GEM optimization model
+    
     def objective(x):
         return mse(y_train, (x[0] * LASSO_df +
                              x[1] * RF_df +
@@ -185,7 +188,8 @@ for iteration in range(resampling):
     con4 = {'type': 'ineq', 'fun': constraint4}
     con5 = {'type': 'ineq', 'fun': constraint5}
     cons = [con1, con2, con3, con4, con5]
-
+    
+    # Initiating GEM-ITH algorithm to find optimal weights and hyperparameters
     kf = KFold(n_splits=5)
 
     for i in range(len(LASSO_param_B.alpha)):
