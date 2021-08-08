@@ -3,6 +3,7 @@
 GEM-ITH Ensemble - Fish data set
 """
 
+# loading required packages
 import numpy as np
 import pandas as pd
 import random
@@ -35,6 +36,7 @@ import os
 pd.set_option('display.max_columns', 500)
 dataset = 'fish'
 
+# loading the data set and preprocessing
 fish = pd.read_csv('qsar_fish_toxicity.csv', sep=';', header=None)
 fish = fish.drop_duplicates()
 fish = fish.reset_index(drop=True)
@@ -55,6 +57,8 @@ kf = KFold(n_splits=5)
 
 for iteration in range(resampling):
     print('Iteration ' + str(iteration+1) + ' started...')
+
+    # train and test split
     x_train, x_test, y_train, y_test = train_test_split(fish_scaled.drop(columns=6),
                                                         fish_scaled[6], train_size=0.8)
 
@@ -67,7 +71,8 @@ for iteration in range(resampling):
 
     ## ---------
     start1 = time.time()
-
+    
+    # Bayesian search with 12 iterations to find candidate hyperparameter combinations
     max_evals = 12
 
     def objective_LASSO(params):
