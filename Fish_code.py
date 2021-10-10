@@ -89,7 +89,7 @@ for iteration in range(resampling):
     tpe_algorithm = tpe.suggest
     trials_LASSO = Trials()
     best_LASSO = fmin(fn=objective_LASSO, space=space_LASSO, algo=tpe.suggest,
-                      max_evals=max_evals, trials=trials_LASSO, rstate=np.random.RandomState(1369))
+                      max_evals=max_evals, trials=trials_LASSO)
     LASSO_param_B = pd.DataFrame({'alpha': []})
     for i in range(max_evals):
         LASSO_param_B.at[i, 'alpha'] = trials_LASSO.results[i]['params']['alpha']
@@ -109,7 +109,7 @@ for iteration in range(resampling):
     tpe_algorithm = tpe.suggest
     trials_RF = Trials()
     best_RF = fmin(fn=objective_RF, space=space_RF, algo=tpe.suggest,
-                   max_evals=max_evals, trials=trials_RF, rstate=np.random.RandomState(1369))
+                   max_evals=max_evals, trials=trials_RF)
     RF_param_B = pd.DataFrame({'n_estimators': [], 'max_depth': []})
     for i in range(max_evals):
         RF_param_B.at[i, 'n_estimators'] = trials_RF.results[i]['params']['n_estimators']
@@ -133,7 +133,7 @@ for iteration in range(resampling):
     tpe_algorithm = tpe.suggest
     trials_XGB = Trials()
     best_XGB = fmin(fn=objective_XGB, space=space_XGB, algo=tpe.suggest,
-                    max_evals=max_evals, trials=trials_XGB, rstate=np.random.RandomState(1369))
+                    max_evals=max_evals, trials=trials_XGB)
     XGB_param_B = pd.DataFrame({'gamma': [], 'learning_rate': [], 'n_estimators': [], 'max_depth': []})
     for i in range(max_evals):
         XGB_param_B.at[i, 'gamma'] = trials_XGB.results[i]['params']['gamma']
@@ -159,7 +159,7 @@ for iteration in range(resampling):
     tpe_algorithm = tpe.suggest
     trials_SVM = Trials()
     best_SVM = fmin(fn=objective_SVM, space=space_SVM, algo=tpe.suggest,
-                    max_evals=max_evals, trials=trials_SVM, rstate=np.random.RandomState(1369))
+                    max_evals=max_evals, trials=trials_SVM)
     SVM_param_B = pd.DataFrame({'C': [], 'gamma': []})
     for i in range(max_evals):
         SVM_param_B.at[i, 'C'] = trials_SVM.results[i]['params']['C']
