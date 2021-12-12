@@ -10,11 +10,13 @@ https://archive.ics.uci.edu/ml/datasets/QSAR+fish+toxicity
 ### Tunable parameters
 
 GENERAL PARAMETERS
+
 Line 50: Resampling
 Line 56: Kfold splits
 Line 63: Training size proportion
 
 GEM-ITH - BAYESIAN SEARCH
+
 Line 77: Number of iterations for Bayesian search
 Line 88: LASSO parameter search space
 Line 107: Random Forest parameter search space
@@ -23,18 +25,21 @@ Line 157: SVM parameter search pace
 Line 207: Kfold splits
 
 GEM and STACKING - GRID SEARCH
+
 Line 319: LASSO grid search space
 Line 332: Random Forest grid search space
 Line 344: XGBoost grid search space
 Line 357: SVM grid search space
 
 BASE LEARNERS - GRID SEARCH
+
 Line 473: LASSO grid search space
 Line 482: Random Forest grid search space
 Line 491: XGBoost grid search space
 Line 501: SVM grid search space
 
 The code is comprised of 5 main sections as follows:
+
 1.	Importing libraries, loading the data, and preprocessing 
 2.	GEM-ITH model with hyperparameters tuned by Bayseian search
 3.	GEM model with hyperparameters tuned by Grid search
